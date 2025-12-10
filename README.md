@@ -37,3 +37,17 @@ streamlit run .\app.py
 If the app reports missing artifacts, run `MRS.ipynb` to regenerate the pickles. If you prefer, you can run cells to generate only the pickles (cells near the end of the notebook).
 
 If you want fuzzy search/autocomplete enhancements or hybrid blending UI, open an issue or ask me to add them.
+
+Deploying on Render (recommended)
+
+To ensure the app has the required TF-IDF / KNN artifacts on deploy, you have two options:
+
+1) Commit the generated `.pkl` artifacts to the repo (quick, but large files in Git).
+
+2) Regenerate artifacts during the build step (recommended). We provide `build_artifacts.py` to build the content-based pickles from the CSV files.
+
+Example Render settings:
+- Build Command: `python build_artifacts.py`
+- Start Command: `streamlit run app.py`
+
+This ensures the required files (`movies_metadata.pkl`, `tfidf_vectors.pkl`, `tfidf_similarity.pkl`, `count_vectors.pkl`, `knn_model.pkl`, etc.) are present in the environment at runtime.
