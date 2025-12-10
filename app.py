@@ -319,6 +319,3 @@ with col1:
             titles2 = {t for t, _ in res2}
             st.markdown(f"**Overlap:** {len(titles1 & titles2)}/{num}")
 
-    # Model prediction panel removed as requested
-
-    # artifacts list removed from sidebar as requested
