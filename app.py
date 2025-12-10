@@ -199,6 +199,31 @@ def load_artifacts():
 
 art = load_artifacts()
 
+# Print a concise artifact summary to stdout (useful for Render logs)
+def _artifact_brief(obj):
+    try:
+        if obj is None:
+            return 'MISSING'
+        t = type(obj)
+        # pandas DataFrame
+        if hasattr(obj, 'shape') and hasattr(obj, 'columns'):
+            return f'DataFrame shape={obj.shape}'
+        # numpy / sparse
+        if hasattr(obj, 'shape'):
+            return f'{t.__name__} shape={getattr(obj, "shape", None)}'
+        # sklearn estimators
+        return t.__name__
+    except Exception:
+        return str(type(obj))
+
+try:
+    print('ARTIFACT SUMMARY:')
+    for k in ['movies_df','tfidf_vectors','tfidf_similarity','tfidf_vectorizer','count_vectors','knn_model']:
+        v = art.get(k)
+        print(f' - {k}: {_artifact_brief(v)}')
+except Exception:
+    pass
+
 st.title("Hybrid Movie Recommendation — TF-IDF vs KNN")
 
 if art['movies_df'] is None:
