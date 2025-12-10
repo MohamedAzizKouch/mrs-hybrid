@@ -182,7 +182,12 @@ def load_artifacts():
     artifacts['count_vectors'] = load_pickle('count_vectors.pkl')
     artifacts['count_vectorizer'] = load_pickle('count_vectorizer.pkl')
     artifacts['knn_model'] = load_pickle('knn_model.pkl')
-    # Note: classifiers/regressors were intentionally removed — app uses only content-based artifacts
+    # Models and metadata (try alternate names)
+    artifacts['classifier_rf'] = load_pickle('classifier_rf.pkl')
+    artifacts['classifier_xgb'] = load_pickle('classifier_xgb.pkl')
+    _a = load_pickle('regressor_rating.pkl')
+    _b = load_pickle('regressor.pkl')
+    artifacts['regressor'] = _a if _a is not None else _b
     _a = load_pickle('feature_columns.pkl')
     _b = load_pickle('columns.pkl')
     artifacts['feature_columns'] = _a if _a is not None else _b
