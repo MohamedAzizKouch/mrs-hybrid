@@ -4,6 +4,8 @@ import numpy as np
 import pickle
 import os
 import requests
+import json
+import ast
 from sklearn.metrics.pairwise import cosine_similarity
 from pathlib import Path
 
@@ -86,8 +88,82 @@ def load_pickle(name):
     p = PK_DIR / name
     if not p.exists():
         return None
-    with open(p, "rb") as f:
-        return pickle.load(f)
+    # Read the first bytes to decide whether this file looks like a pickle
+    try:
+        with open(p, 'rb') as f:
+            head = f.read(4)
+            # Common pickle protocol starts with 0x80
+            if len(head) > 0 and head[0] == 0x80:
+                f.seek(0)
+                try:
+                    return pickle.load(f)
+                except Exception as e:
+                    # fall through to tolerant loaders
+                    pickle_err = e
+            else:
+                pickle_err = None
+    except Exception as e:
+        pickle_err = e
+
+    # If we reach here, either file didn't look like a pickle or unpickling failed.
+    # Try tolerant fallbacks: JSON, python literal, CSV, or DataFrame reconstruction.
+    text = None
+    try:
+        text = p.read_text(encoding='utf-8')
+    except Exception:
+        text = None
+
+    if text:
+        # Try JSON
+        try:
+            obj = json.loads(text)
+            if isinstance(obj, dict):
+                try:
+                    return pd.DataFrame(obj)
+                except Exception:
+                    return obj
+            if isinstance(obj, list):
+                try:
+                    return pd.DataFrame(obj)
+                except Exception:
+                    return obj
+            return obj
+        except Exception:
+            pass
+
+        # Try python literal repr
+        try:
+            obj = ast.literal_eval(text)
+            if isinstance(obj, dict):
+                try:
+                    return pd.DataFrame(obj)
+                except Exception:
+                    return obj
+            if isinstance(obj, list):
+                try:
+                    return pd.DataFrame(obj)
+                except Exception:
+                    return obj
+            return obj
+        except Exception:
+            pass
+
+    # Try reading as CSV
+    try:
+        df = pd.read_csv(p)
+        return df
+    except Exception:
+        pass
+
+    # Nothing worked — warn and return None
+    try:
+        msg = f"Failed to load '{name}' as pickle/JSON/CSV."
+        if pickle_err is not None:
+            msg += f" Pickle error: {pickle_err}"
+        st.warning(msg)
+    except Exception:
+        pass
+    return None
 
 @st.cache_data
 def load_artifacts():
