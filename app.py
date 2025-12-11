@@ -103,13 +103,27 @@ def load_pickle(name):
 @st.cache_data
 def load_artifacts():
     artifacts = {}
-    artifacts['movies_df'] = load_pickle('movies_metadata.pkl') or load_pickle('movies_dict.pkl')
+
+    # Movies DataFrame
+    movies_df = load_pickle('movies_metadata.pkl')
+    if movies_df is None:
+        movies_df = load_pickle('movies_dict.pkl')
+    artifacts['movies_df'] = movies_df
+
+    # TF-IDF artifacts
     artifacts['tfidf_vectors'] = load_pickle('tfidf_vectors.pkl')
-    artifacts['tfidf_similarity'] = load_pickle('tfidf_similarity.pkl') or load_pickle('similarity.pkl')
+    tfidf_similarity = load_pickle('tfidf_similarity.pkl')
+    if tfidf_similarity is None:
+        tfidf_similarity = load_pickle('similarity.pkl')
+    artifacts['tfidf_similarity'] = tfidf_similarity
+
     artifacts['tfidf_vectorizer'] = load_pickle('tfidf_vectorizer.pkl')
+
+    # Count/KNN artifacts
     artifacts['count_vectors'] = load_pickle('count_vectors.pkl')
     artifacts['count_vectorizer'] = load_pickle('count_vectorizer.pkl')
     artifacts['knn_model'] = load_pickle('knn_model.pkl')
+
     return artifacts
 
 art = load_artifacts()
