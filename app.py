@@ -5,7 +5,6 @@ import numpy as np
 import pickle
 import requests
 import os
-import ast
 from pathlib import Path
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -14,10 +13,9 @@ from sklearn.metrics.pairwise import cosine_similarity
 # ----------------------------
 st.set_page_config(page_title="Movie Recommender", layout="wide")
 
-# Base directory for artifacts
 PK_DIR = Path(".")
 
-# Debug: Show current directory and files (useful for Render)
+# Debug: Show current directory and files
 try:
     st.write("Current working directory:", os.getcwd())
     st.write("Files in directory:", os.listdir("."))
@@ -27,8 +25,6 @@ except Exception:
 # TMDB API settings
 TMDB_API_KEY = os.environ.get('TMDB_API_KEY', '8265bd1679663a7ea12ac168da84d2e8')
 TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500'
-
-# Poster cache file
 POSTER_CACHE_FILE = PK_DIR / 'poster_cache.json'
 
 # ----------------------------
@@ -90,15 +86,18 @@ def fetch_tmdb_poster(movie_id: int, poster_cache=None):
 # ----------------------------
 # Artifact Loading
 # ----------------------------
-@st.cache_data
 def load_pickle(name):
     p = PK_DIR / name
     if not p.exists():
+        print(f"File {name} not found.")
         return None
     try:
         with open(p, 'rb') as f:
-            return pickle.load(f)
-    except Exception:
+            obj = pickle.load(f)
+            print(f"Loaded {name} successfully: {type(obj)}")
+            return obj
+    except Exception as e:
+        print(f"Failed to load {name}: {e}")
         return None
 
 @st.cache_data
@@ -128,23 +127,31 @@ for k in ['movies_df','tfidf_vectors','tfidf_similarity','tfidf_vectorizer','cou
     print(f' - {k}: {_artifact_brief(art.get(k))}')
 
 # ----------------------------
-# UI Setup
+# Fallback: Rebuild movies_df from CSV if pickle fails
 # ----------------------------
-st.title("Hybrid Movie Recommendation — TF-IDF vs KNN")
-
-if art['movies_df'] is None:
-    st.error("Required pickles not found in the project directory. Run the notebook to generate artifacts first.")
-    st.stop()
-
 movies_df = art['movies_df']
-if not isinstance(movies_df, pd.DataFrame):
-    movies_df = pd.DataFrame(movies_df)
+if movies_df is None:
+    st.warning("Pickle failed, rebuilding from CSV...")
+    try:
+        movies_raw = pd.read_csv("tmdb_5000_movies.csv")
+        credits_raw = pd.read_csv("tmdb_5000_credits.csv")
+        df = movies_raw.merge(credits_raw, on="title")
+        movies_df = df[['id', 'title', 'overview']].rename(columns={'id': 'movie_id'})
+        movies_df['tags'] = movies_df['overview'].fillna("").apply(lambda x: str(x).lower())
+        st.success("Rebuilt movies_df from CSV successfully!")
+    except Exception as e:
+        st.error(f"Failed to rebuild from CSV: {e}")
+        st.stop()
 
+# Ensure expected columns
 for c in ['title', 'movie_id', 'tags']:
     if c not in movies_df.columns:
         movies_df[c] = None
 
+# ----------------------------
 # Sidebar controls
+# ----------------------------
+st.title("Hybrid Movie Recommendation — TF-IDF vs KNN")
 st.sidebar.header("Controls")
 method = st.sidebar.selectbox("Recommendation method", ["TF-IDF", "KNN", "Compare"])
 search_input = st.sidebar.text_input("Search movie (partial or full)")
