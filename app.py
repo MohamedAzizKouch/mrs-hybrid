@@ -141,7 +141,7 @@ for k in ['movies_df','tfidf_vectors','tfidf_similarity','tfidf_vectorizer','cou
     print(f' - {k}: {_artifact_brief(art.get(k))}')
 
 # ----------------------------
-# Fallback: Rebuild movies_df from CSV if pickle fails
+# Fallback: Rebuild movies_df and compute artifacts if pickles fail
 # ----------------------------
 movies_df = art['movies_df']
 if movies_df is None:
@@ -156,6 +156,28 @@ if movies_df is None:
     except Exception as e:
         st.error(f"Failed to rebuild from CSV: {e}")
         st.stop()
+
+# Compute TF-IDF and KNN if missing
+if art['tfidf_vectors'] is None or art['tfidf_similarity'] is None:
+    st.info("Computing TF-IDF vectors and similarity matrix...")
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    tfidf = TfidfVectorizer(max_features=5000, stop_words='english')
+    tfidf_vectors = tfidf.fit_transform(movies_df['tags'])
+    tfidf_similarity = cosine_similarity(tfidf_vectors)
+    art['tfidf_vectors'] = tfidf_vectors
+    art['tfidf_similarity'] = tfidf_similarity
+    art['tfidf_vectorizer'] = tfidf
+
+if art['count_vectors'] is None or art['knn_model'] is None:
+    st.info("Computing Count vectors and KNN model...")
+    from sklearn.feature_extraction.text import CountVectorizer
+    from sklearn.neighbors import NearestNeighbors
+    count_vec = CountVectorizer(max_features=5000, stop_words='english')
+    count_vectors = count_vec.fit_transform(movies_df['tags'])
+    knn_model = NearestNeighbors(n_neighbors=6, metric='cosine').fit(count_vectors)
+    art['count_vectors'] = count_vectors
+    art['count_vectorizer'] = count_vec
+    art['knn_model'] = knn_model
 
 # Ensure expected columns
 for c in ['title', 'movie_id', 'tags']:
@@ -190,18 +212,13 @@ def recommend_tfidf(title, top_n=5):
     idx = find_movie_index(title)
     if idx is None:
         return []
-    if art['tfidf_similarity'] is None and art['tfidf_vectors'] is not None:
-        st.info('Computing TF-IDF similarity matrix (one-time, may be slow)...')
-        art['tfidf_similarity'] = cosine_similarity(art['tfidf_vectors'])
-    if art['tfidf_similarity'] is None:
-        return []
     sim = art['tfidf_similarity'][idx]
     inds = np.argsort(sim)[::-1][1: top_n+1]
     return list(zip(movies_df.iloc[inds]['title'].values, sim[inds]))
 
 def recommend_knn(title, top_n=5):
     idx = find_movie_index(title)
-    if idx is None or art['knn_model'] is None or art['count_vectors'] is None:
+    if idx is None:
         return []
     distances, indices = art['knn_model'].kneighbors(art['count_vectors'][idx], n_neighbors=top_n+1)
     inds = indices[0][1:]
